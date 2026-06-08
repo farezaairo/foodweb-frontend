@@ -5,7 +5,7 @@ import { formatCurrency } from '../../utils/print'
 import { MenuItem } from '../../data/types'
 import { ShoppingCart, Search, FlameKindling, Plus, Minus, MapPin, ChefHat, Clock, Star, Flame, AlertCircle, Tag } from 'lucide-react'
 import { getMenus } from '../../api/menuApi' 
-import { getSettings } from '../../api/pengaturan' // 🔥 SINKRONISASI: Import API getSettings terpusat
+import { getSettings } from '../../api/pengaturan' // Sinkronisasi API Pengaturan Terpusat
 
 export function CustomerMenu() {
   const { state, dispatch } = useApp()
@@ -20,22 +20,21 @@ export function CustomerMenu() {
   const [addNotes, setAddNotes] = useState('')
   const [addSpiceLevel, setAddSpiceLevel] = useState('')
 
-  // 🔥 SINKRONISASI UTAMA: Memuat Menu & Setting Restoran secara bersamaan dari MongoDB Cloud
+  // Sinkronisasi data Menu & Pengaturan Restoran dari MongoDB Cloud secara bersamaan
   useEffect(() => {
     async function loadData() {
       try {
         setLoading(true)
         
-        // Eksekusi paralel agar loading lebih cepat dan efisien
+        // Eksekusi paralel agar loading data lebih responsif
         const [menuData, settingsData] = await Promise.all([
           getMenus(),
           getSettings()
         ])
 
-        // 1. Simpan data menu ke state lokal
         setMenuItems(menuData || [])
 
-        // 2. Kirim data setting terbaru ke global context agar sinkron di seluruh perangkat (HP Pelanggan)
+        // Update state global AppContext agar tersinkronisasi di perangkat pelanggan
         if (settingsData) {
           dispatch({
             type: 'UPDATE_SETTINGS',
@@ -43,7 +42,7 @@ export function CustomerMenu() {
           })
         }
       } catch (error) {
-        console.error("Gagal sinkronisasi data server pelanggan:", error)
+        console.error("Gagal sinkronisasi data operasional server:", error)
       } finally {
         setLoading(false)
       }
@@ -51,7 +50,7 @@ export function CustomerMenu() {
     loadData()
   }, [dispatch])
 
-  // SINKRONISASI STATE OPERASIONAL RESTORAN
+  // Validasi status operasional restoran dari pengaturan
   const isRestoOpen = state.settings?.isOperational !== false
 
   const cartCount = state.cart.reduce((s, c) => s + c.quantity, 0)
@@ -62,7 +61,7 @@ export function CustomerMenu() {
 
   const now = new Date()
   
-  // Filter menuItems berdasarkan input pencarian dan kategori dari state lokal MongoDB
+  // Filter menuItems berdasarkan pencarian dan kategori dari database cloud
   const allMenuItems = menuItems.filter(m => {
     const matchSearch = m.name.toLowerCase().includes(search.toLowerCase())
     const matchCat = category === 'Semua' || m.category === category
@@ -78,7 +77,7 @@ export function CustomerMenu() {
     .slice(0, 6)
 
   function openAdd(item: MenuItem) {
-    if (!isRestoOpen) return // Mencegah klik jika restoran tutup
+    if (!isRestoOpen) return // Blokir aksi modal tambah jika restoran tutup
     setAddingItem(item)
     setAddQty(1)
     setAddNotes('')
@@ -109,7 +108,6 @@ export function CustomerMenu() {
     return !!(item.discount && item.discount > 0)
   }
 
-  // 1. LOADING SCREEN
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center text-muted-foreground p-6">
@@ -119,11 +117,10 @@ export function CustomerMenu() {
     )
   }
 
-  // 2. SCREEN NORMAL
   return (
     <div className="min-h-screen bg-background relative">
       
-      {/* 🚨 SINKRONISASI BANNER ATAS JIKA RESTORAN TUTUP */}
+      {/* Banner info ketika status operasional diatur TUTUP */}
       {!isRestoOpen && (
         <div className="bg-destructive text-white text-center py-2.5 px-4 text-xs font-bold sticky top-0 z-50 flex items-center justify-center gap-2 shadow-md">
           <AlertCircle size={14} className="animate-pulse" />
@@ -151,7 +148,8 @@ export function CustomerMenu() {
             <span>{state.settings?.location || 'Lokasi Restoran'}</span>
             <span className="mx-2">·</span>
             <Clock size={11} />
-            <span>{state.settings?.operationalHours || '~20 menit'}</span>
+            {/* Menampilkan text jam operasional dinamis dari menu AdminSettings */}
+            <span>{state.settings?.operationalHours || 'Setiap Hari, 09:00 - 21:00'}</span>
           </div>
 
           {/* Search */}
@@ -317,7 +315,7 @@ export function CustomerMenu() {
                       )}
                     </div>
                     
-                    {/* SINKRONISASI LOCK BUTTON: Tombol non-aktif otomatis jika resto tutup */}
+                    {/* Logika Tombol Pembatasan Operasional */}
                     {outOfStock ? (
                       <span className="text-xs text-muted-foreground font-medium">Tidak Tersedia</span>
                     ) : !isRestoOpen ? (
@@ -336,7 +334,7 @@ export function CustomerMenu() {
         </div>
       </div>
 
-      {/* Floating Cart Button (SINKRONISASI: Hanya muncul jika Restoran Buka) */}
+      {/* Floating Cart Button (Hanya tampil jika restoran sedang BUKA) */}
       {cartCount > 0 && isRestoOpen && (
         <div className="fixed bottom-6 left-4 right-4 max-w-2xl mx-auto z-40">
           <button onClick={() => navigate('/checkout')}
@@ -367,7 +365,7 @@ export function CustomerMenu() {
               </div>
             </div>
 
-            {/* Spice Level */}
+            {/* Spice Level Section */}
             {addingItem.hasSpiceLevel && state.settings?.spiceLevels && state.settings.spiceLevels.length > 0 && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-foreground mb-2">Tingkat Kepedasan</label>
@@ -384,7 +382,7 @@ export function CustomerMenu() {
               </div>
             )}
 
-            {/* Notes */}
+            {/* Notes Section */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-foreground mb-2">Catatan (Opsional)</label>
               <textarea value={addNotes} onChange={e => setAddNotes(e.target.value)}
@@ -393,7 +391,7 @@ export function CustomerMenu() {
               />
             </div>
 
-            {/* Quantity */}
+            {/* Quantity Section */}
             <div className="mb-4">
               <label className="block text-sm font-medium text-foreground mb-2">Jumlah</label>
               <div className="flex items-center justify-center gap-6">
