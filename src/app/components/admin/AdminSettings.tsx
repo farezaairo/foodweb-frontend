@@ -8,7 +8,6 @@ import {
 } from "../../api/pengaturan"
 
 export function AdminSettings() {
-  // 1. Ambil state global dan dispatch di bagian paling atas (Satu deklarasi untuk semua)
   const { state, dispatch } = useApp()
 
   // State Utama
@@ -21,7 +20,6 @@ export function AdminSettings() {
   const [isLoading, setIsLoading] = useState(true)
   const [saved, setSaved] = useState(false)
 
-  // Memuat data dari API saat komponen di-mount
   useEffect(() => {
     loadSettings()
   }, [])
@@ -43,17 +41,22 @@ export function AdminSettings() {
     }
   }
 
-  // 2. Fungsi Menyimpan Data via API
+  // Menggabungkan seluruh state lokal menjadi satu objek utuh yang valid
+  const getMergedData = (currentOperational?: boolean, currentHours?: string) => {
+    return {
+      ...settings,
+      isOperational: currentOperational !== undefined ? currentOperational : settings.isOperational,
+      operationalHours: currentHours !== undefined ? currentHours : settings.operationalHours,
+      miscCosts,
+      spiceLevels,
+      customCategories: categories
+    }
+  }
+
   async function handleSave() {
     try {
       const settingsId = settings._id; 
-
-      const updatedData = {
-        ...settings,
-        miscCosts,
-        spiceLevels,
-        customCategories: categories
-      }
+      const updatedData = getMergedData()
 
       // 1. Kirim ke database MongoDB Cloud via backend Railway
       await updateSettings(settingsId, updatedData) 
@@ -110,7 +113,6 @@ export function AdminSettings() {
     setCategories(c => c.filter((_, i) => i !== index))
   }
 
-  // Loader Jika data belum siap agar aplikasi tidak Crash / Error membaca null properti
   if (isLoading || !settings) {
     return (
       <div className="p-12 text-center text-muted-foreground animate-pulse text-sm">
@@ -131,68 +133,66 @@ export function AdminSettings() {
         </button>
       </div>
 
-      {/* Restaurant Info */}
-      {/* Status Operasional Restoran (Figma UI Styled) */}
-<div className="bg-card rounded-2xl border border-border p-6 overflow-hidden relative">
-  <div className="flex items-center justify-between gap-6">
-    <div className="space-y-1">
-      <div className="flex items-center gap-2">
-        <span className={`w-2.5 h-2.5 rounded-full ${settings.isOperational ? 'bg-emerald-500 animate-pulse' : 'bg-destructive'}`} />
-        <h2 className="font-semibold text-foreground text-[17px]" style={{ fontFamily: 'var(--font-display)' }}>
-          Status Operasional Restoran
-        </h2>
+      {/* Status Operasional Restoran */}
+      <div className="bg-card rounded-2xl border border-border p-6 overflow-hidden relative">
+        <div className="flex items-center justify-between gap-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${settings.isOperational ? 'bg-emerald-500 animate-pulse' : 'bg-destructive'}`} />
+              <h2 className="font-semibold text-foreground text-[17px]" style={{ fontFamily: 'var(--font-display)' }}>
+                Status Operasional Restoran
+              </h2>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {settings.isOperational 
+                ? "Restoran aktif menerima pesanan dari customer." 
+                : "Restoran tutup. Customer tidak bisa masuk ke checkout."}
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              const nextOperationalStatus = !settings.isOperational;
+              setSettings((s: any) => ({ ...s, isOperational: nextOperationalStatus }));
+              
+              // Menyinkronkan data mutakhir (termasuk list kategori, pedas, dll) ke Global Sidebar
+              dispatch({ 
+                type: 'UPDATE_SETTINGS', 
+                payload: getMergedData(nextOperationalStatus, undefined)
+              });
+            }}
+            className={`w-14 h-8 rounded-full transition-all duration-300 relative flex items-center p-1 cursor-pointer ${
+              settings.isOperational ? 'bg-[#D4541A]' : 'bg-muted border border-border'
+            }`}
+          >
+            <div 
+              className={`w-6 h-6 rounded-full bg-white shadow-md transition-all duration-300 transform ${
+                settings.isOperational ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
+
+        <div className="mt-4 pt-4 border-t border-border grid grid-cols-1 gap-2">
+          <Field label="Jam Operasional Toko (Bisa Diedit)">
+            <input 
+              value={settings.operationalHours || ''} 
+              onChange={e => {
+                const nextHours = e.target.value;
+                setSettings((s: any) => ({ ...s, operationalHours: nextHours }));
+                
+                dispatch({ 
+                  type: 'UPDATE_SETTINGS', 
+                  payload: getMergedData(undefined, nextHours)
+                });
+              }} 
+              placeholder="Contoh: Setiap Hari, 09:00 - 21:00"
+              className="input-field" 
+            />
+          </Field>
+        </div>
       </div>
-      <p className="text-sm text-muted-foreground">
-        {settings.isOperational 
-          ? "Restoran aktif menerima pesanan dari customer." 
-          : "Restoran tutup. Customer tidak bisa masuk ke checkout."}
-      </p>
-    </div>
 
-    {/* Custom Figma Switch Toggle */}
-    <button
-      onClick={() => {
-        const nextOperationalStatus = !settings.isOperational;
-        // 1. Update state lokal form
-        setSettings((s: any) => ({ ...s, isOperational: nextOperationalStatus }));
-        // 2. 🔥 Update state global secara real-time agar Sidebar langsung berubah warna!
-        dispatch({ 
-          type: 'UPDATE_SETTINGS', 
-          payload: { ...settings, isOperational: nextOperationalStatus } 
-        });
-      }}
-      className={`w-14 h-8 rounded-full transition-all duration-300 relative flex items-center p-1 cursor-pointer ${
-        settings.isOperational ? 'bg-[#D4541A]' : 'bg-muted border border-border'
-      }`}
-    >
-      <div 
-        className={`w-6 h-6 rounded-full bg-white shadow-md transition-all duration-300 transform ${
-          settings.isOperational ? 'translate-x-6' : 'translate-x-0'
-        }`}
-      />
-    </button>
-  </div>
-
-  <div className="mt-4 pt-4 border-t border-border grid grid-cols-1 gap-2">
-    <Field label="Jam Operasional Toko (Bisa Diedit)">
-      <input 
-        value={settings.operationalHours || ''} 
-        onChange={e => {
-          const nextHours = e.target.value;
-          // 1. Update state lokal form
-          setSettings((s: any) => ({ ...s, operationalHours: nextHours }));
-          // 2. 🔥 Update state global secara real-time agar teks di Sidebar ikut berubah mengetik!
-          dispatch({ 
-            type: 'UPDATE_SETTINGS', 
-            payload: { ...settings, operationalHours: nextHours } 
-          });
-        }} 
-        placeholder="Contoh: Setiap Hari, 09:00 - 21:00"
-        className="input-field" 
-      />
-    </Field>
-  </div>
-</div>
       <Section title="Informasi Restoran">
         <Field label="Nama Restoran">
           <input value={settings.restaurantName || ''} onChange={e => setSettings((s: any) => ({ ...s, restaurantName: e.target.value }))} className="input-field" />
@@ -222,7 +222,7 @@ export function AdminSettings() {
         </Field>
       </Section>
 
-      {/* Order Settings */}
+      {/* Pengaturan Pesanan */}
       <Section title="Pengaturan Pesanan">
         <Field label="Estimasi Waktu Penyiapan (menit)">
           <div className="relative">
@@ -232,7 +232,7 @@ export function AdminSettings() {
         </Field>
       </Section>
 
-      {/* Custom Categories */}
+      {/* Kategori Menu */}
       <Section title="Kategori Menu">
         <p className="text-sm text-muted-foreground -mt-2 mb-4">Kelola kategori menu yang dapat dipilih saat menambah menu baru.</p>
         <div className="space-y-3">
@@ -255,7 +255,7 @@ export function AdminSettings() {
         </div>
       </Section>
 
-      {/* Spice Levels */}
+      {/* Tingkat Kepedasan */}
       <Section title="Tingkat Kepedasan">
         <p className="text-sm text-muted-foreground -mt-2 mb-4">Atur pilihan tingkat kepedasan untuk menu yang memerlukan opsi pedas.</p>
         <div className="space-y-3">
@@ -274,7 +274,7 @@ export function AdminSettings() {
         </div>
       </Section>
 
-      {/* Misc Costs */}
+      {/* Biaya Tambahan */}
       <Section title="Biaya Tambahan">
         <p className="text-sm text-muted-foreground -mt-2 mb-4">Biaya ini akan ditambahkan ke setiap pesanan secara otomatis.</p>
         <div className="space-y-3">
@@ -297,7 +297,7 @@ export function AdminSettings() {
         </div>
       </Section>
 
-      {/* Security */}
+      {/* Keamanan */}
       <Section title="Keamanan">
         <Field label="Password Admin">
           <div className="relative">

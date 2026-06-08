@@ -35,6 +35,7 @@ type Action =
   | { type: 'APPLY_PROMO'; payload: Promo | null }
 
 const STORAGE_KEY = 'warung_sari_state'
+const AUTH_KEY = 'warung_sari_admin_auth'
 
 function loadState(): Partial<AppState> {
   try {
@@ -55,6 +56,15 @@ function saveState(state: AppState) {
   } catch {}
 }
 
+// Mengecek status login admin secara aman dari localStorage untuk inisialisasi awal
+function getInitialAuthStatus(): boolean {
+  try {
+    return localStorage.getItem(AUTH_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
     case 'SET_INITIAL_DATA':
@@ -66,8 +76,14 @@ function reducer(state: AppState, action: Action): AppState {
         settings: action.payload.settings,
       }
 
-    case 'LOGIN_ADMIN': return { ...state, isAdminLoggedIn: true }
-    case 'LOGOUT_ADMIN': return { ...state, isAdminLoggedIn: false }
+    // Mengunci & menghapus status login dari localStorage saat action dipicu
+    case 'LOGIN_ADMIN': 
+      localStorage.setItem(AUTH_KEY, 'true')
+      return { ...state, isAdminLoggedIn: true }
+      
+    case 'LOGOUT_ADMIN': 
+      localStorage.removeItem(AUTH_KEY)
+      return { ...state, isAdminLoggedIn: false }
 
     case 'ADD_MENU_ITEM': return { ...state, menuItems: [...state.menuItems, action.payload] }
     case 'UPDATE_MENU_ITEM':
@@ -180,7 +196,12 @@ function reducer(state: AppState, action: Action): AppState {
         promos: state.promos.filter(p => p._id !== action.payload && p.id !== action.payload) 
       }
 
-    case 'UPDATE_SETTINGS': return { ...state, settings: { ...state.settings, ...action.payload } }
+    // Melakukan merging objek secara dalam (deep/shallow merge) agar properti settings lain tidak lenyap
+    case 'UPDATE_SETTINGS': 
+      return { 
+        ...state, 
+        settings: { ...state.settings, ...action.payload } 
+      }
     case 'UPDATE_MISC_COSTS':
       return { ...state, settings: { ...state.settings, miscCosts: action.payload } }
     case 'APPLY_PROMO': return { ...state, appliedPromo: action.payload }
@@ -191,7 +212,7 @@ function reducer(state: AppState, action: Action): AppState {
 
 const saved = loadState()
 const initialState: AppState = {
-  isAdminLoggedIn: false,
+  isAdminLoggedIn: getInitialAuthStatus(), // Menyinkronkan status awal login saat reload
   menuItems: saved.menuItems ?? dummyMenuItems,
   orders: saved.orders ?? dummyOrders,
   promos: saved.promos ?? dummyPromos,

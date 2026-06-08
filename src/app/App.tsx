@@ -11,9 +11,25 @@ import { CustomerMenu } from './components/customer/CustomerMenu'
 import { CustomerCheckout } from './components/customer/CustomerCheckout'
 import { OrderStatus } from './components/customer/OrderStatus'
 
+// 🛡️ Guard 1: Melindungi halaman Admin agar tidak bisa diakses tanpa login
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { state } = useApp()
-  if (!state.isAdminLoggedIn) return <Navigate to="/login" replace />
+  
+  if (!state.isAdminLoggedIn) {
+    return <Navigate to="/login" replace />
+  }
+  
+  return <>{children}</>
+}
+
+// 🛡️ Guard 2: Melindungi halaman Login agar Admin yang sudah masuk tidak terlempar kembali ke form login
+function GuestGuard({ children }: { children: React.ReactNode }) {
+  const { state } = useApp()
+  
+  if (state.isAdminLoggedIn) {
+    return <Navigate to="/admin" replace />
+  }
+  
   return <>{children}</>
 }
 
@@ -22,17 +38,32 @@ export default function App() {
     <AppProvider>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/admin" element={<AdminGuard><AdminLayout /></AdminGuard>}>
+          {/* SINKRONISASI: Bungkus login dengan GuestGuard */}
+          <Route path="/login" element={
+            <GuestGuard>
+              <LoginPage />
+            </GuestGuard>
+          } />
+          
+          {/* SINKRONISASI: Proteksi penuh rute admin menggunakan state AppContext terbaru */}
+          <Route path="/admin" element={
+            <AdminGuard>
+              <AdminLayout />
+            </AdminGuard>
+          }>
             <Route index element={<AdminDashboard />} />
             <Route path="menu" element={<AdminMenu />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="promo" element={<AdminPromo />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
+          
+          {/* Rute Sisi Pelanggan */}
           <Route path="/" element={<CustomerMenu />} />
           <Route path="/checkout" element={<CustomerCheckout />} />
           <Route path="/order/:id" element={<OrderStatus />} />
+          
+          {/* Catch-all: Alihkan rute tidak dikenal ke halaman utama */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

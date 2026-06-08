@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router'
 import { useApp } from '../../context/AppContext'
 import { LayoutDashboard, UtensilsCrossed, ClipboardList, Tag, Settings, LogOut, Menu, X, ChefHat } from 'lucide-react'
-import { getOrders } from '../../api/orderApi' // Import API Order dari MongoDB
+import { getOrders } from '../../api/orderApi'
 
 const navItems = [
   { to: '/admin', icon: LayoutDashboard, label: 'Dashboard', end: true },
@@ -18,7 +18,6 @@ export function AdminLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pendingCount, setPendingCount] = useState(0)
 
-  // Polling data dari MongoDB secara real-time untuk menghitung pesanan pending baru
   useEffect(() => {
     async function updatePendingCount() {
       try {
@@ -30,10 +29,7 @@ export function AdminLayout() {
       }
     }
 
-    // Jalankan saat pertama kali dimuat
     updatePendingCount()
-
-    // Polling berkala setiap 10 detik
     const interval = setInterval(updatePendingCount, 10000)
     return () => clearInterval(interval)
   }, [])
@@ -51,7 +47,10 @@ export function AdminLayout() {
             <ChefHat size={22} color="white" />
           </div>
           <div>
-            <div className="font-semibold text-foreground text-sm truncate max-w-[140px]">{state.settings.restaurantName}</div>
+            {/* Menggunakan optional chaining untuk mencegah crash saat sync awal */}
+            <div className="font-semibold text-foreground text-sm truncate max-w-[140px]">
+              {state.settings?.restaurantName || 'Memuat Resto...'}
+            </div>
             <div className="text-xs text-muted-foreground">Panel Admin</div>
           </div>
         </div>
@@ -79,25 +78,24 @@ export function AdminLayout() {
         ))}
       </nav>
 
-      {/* Widget Status Operasional Toko (Figma UI Styled) */}
+      {/* Widget Status Operasional Toko */}
       <div className="px-4">
         <div className={`p-3.5 rounded-xl border transition-all duration-300 ${
-          state.settings.isOperational 
+          state.settings?.isOperational 
             ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400' 
             : 'bg-destructive/10 border-destructive/20 text-destructive'
         }`}>
           <div className="flex items-center gap-2.5">
-            {/* Lampu Indikator Berkedip Lambat jika Buka */}
             <span className={`w-2 h-2 rounded-full ${
-              state.settings.isOperational ? 'bg-emerald-500 animate-pulse' : 'bg-destructive'
+              state.settings?.isOperational ? 'bg-emerald-500 animate-pulse' : 'bg-destructive'
             }`} />
             
             <div className="flex-1 min-w-0">
               <div className="text-xs font-bold uppercase tracking-wider">
-                {state.settings.isOperational ? 'Resto Beroperasi' : 'Resto Tutup'}
+                {state.settings?.isOperational ? 'Resto Beroperasi' : 'Resto Tutup'}
               </div>
               <div className="text-[11px] text-muted-foreground truncate mt-0.5 font-medium">
-                {state.settings.operationalHours || '09:00 - 21:00'}
+                {state.settings?.operationalHours || '09:00 - 21:00'}
               </div>
             </div>
           </div>
@@ -146,7 +144,7 @@ export function AdminLayout() {
             )}
           </button>
           <span className="font-semibold text-foreground text-sm truncate max-w-[200px]" style={{ fontFamily: 'var(--font-display)' }}>
-            {state.settings.restaurantName}
+            {state.settings?.restaurantName || 'Memuat Resto...'}
           </span>
           <div className="w-8" />
         </header>

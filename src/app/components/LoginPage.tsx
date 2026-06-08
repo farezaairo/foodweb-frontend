@@ -22,7 +22,18 @@ export function LoginPage() {
       const trimmedUsername = username.trim().toLowerCase()
       const adminPasswordDb = state.settings?.adminPassword
 
+      // Keamanan tambahan: cegah kecocokan jika settings belum termuat dari API
+      if (!adminPasswordDb) {
+        setError('Sistem sedang menyinkronkan data, mohon tunggu beberapa detik lalu coba lagi.')
+        setLoading(false)
+        return
+      }
+
       if (trimmedUsername === 'admin' && password === adminPasswordDb) {
+        // 🌟 1. Kunci status login di local storage agar tahan banting saat di-reload
+        localStorage.setItem('isAuthenticatedAdmin', 'true')
+
+        // 2. Trigger global state
         dispatch({ type: 'LOGIN_ADMIN' })
         navigate('/admin')
       } else {
