@@ -2,10 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '../../context/AppContext'
 import { MiscCost, SpiceLevel } from '../../data/types'
 import { Plus, Trash2, Save, MapPin, Phone, Clock, Lock, Tag } from 'lucide-react'
-import {
-  getSettings,
-  updateSettings
-} from "../../api/pengaturan"
+import { getSettings, updateSettings } from "../../api/pengaturan"
 
 export function AdminSettings() {
   const { state, dispatch } = useApp()
@@ -42,7 +39,9 @@ export function AdminSettings() {
   }
 
   // Menggabungkan seluruh state lokal menjadi satu objek utuh yang valid
+  // Menyediakan parameter opsional untuk status operasional & jam agar bisa langsung disinkronkan ke global
   const getMergedData = (currentOperational?: boolean, currentHours?: string) => {
+    if (!settings) return null
     return {
       ...settings,
       isOperational: currentOperational !== undefined ? currentOperational : settings.isOperational,
@@ -53,10 +52,17 @@ export function AdminSettings() {
     }
   }
 
+  // Handle tombol "Simpan" utama (Menyimpan seluruh form ke cloud MongoDB)
   async function handleSave() {
     try {
-      const settingsId = settings._id; 
+      if (!settings) return
+      const settingsId = settings._id
       const updatedData = getMergedData()
+
+      if (!settingsId) {
+        console.error("ID Pengaturan tidak ditemukan.")
+        return
+      }
 
       // 1. Kirim ke database MongoDB Cloud via backend Railway
       await updateSettings(settingsId, updatedData) 
@@ -155,11 +161,14 @@ export function AdminSettings() {
               const nextOperationalStatus = !settings.isOperational;
               setSettings((s: any) => ({ ...s, isOperational: nextOperationalStatus }));
               
-              // Menyinkronkan data mutakhir (termasuk list kategori, pedas, dll) ke Global Sidebar
-              dispatch({ 
-                type: 'UPDATE_SETTINGS', 
-                payload: getMergedData(nextOperationalStatus, undefined)
-              });
+              // 🔥 UTAMA: Menyinkronkan data mutakhir (termasuk list kategori, pedas, dll) ke Global Sidebar secara instan
+              const mergedData = getMergedData(nextOperationalStatus, undefined);
+              if (mergedData) {
+                dispatch({ 
+                  type: 'UPDATE_SETTINGS', 
+                  payload: mergedData
+                });
+              }
             }}
             className={`w-14 h-8 rounded-full transition-all duration-300 relative flex items-center p-1 cursor-pointer ${
               settings.isOperational ? 'bg-[#D4541A]' : 'bg-muted border border-border'
@@ -181,10 +190,14 @@ export function AdminSettings() {
                 const nextHours = e.target.value;
                 setSettings((s: any) => ({ ...s, operationalHours: nextHours }));
                 
-                dispatch({ 
-                  type: 'UPDATE_SETTINGS', 
-                  payload: getMergedData(undefined, nextHours)
-                });
+                // 🔥 UTAMA: Sinkronisasi jam operasional langsung ke global context
+                const mergedData = getMergedData(undefined, nextHours);
+                if (mergedData) {
+                  dispatch({ 
+                    type: 'UPDATE_SETTINGS', 
+                    payload: mergedData
+                  });
+                }
               }} 
               placeholder="Contoh: Setiap Hari, 09:00 - 21:00"
               className="input-field" 

@@ -3,14 +3,14 @@ import { useNavigate } from 'react-router'
 import { useApp } from '../../context/AppContext'
 import { formatCurrency } from '../../utils/print'
 import { MenuItem } from '../../data/types'
-// SINKRONISASI: Menambahkan ikon Tag dan AlertCircle ke dalam import
-import { ShoppingCart, Search, FlameKindling, Plus, Minus, MapPin, ChefHat, Clock, Star, Flame, Store, AlertCircle, Tag } from 'lucide-react'
-import { getMenus } from '../../api/menuApi' // Import API Menu dari MongoDB
+import { ShoppingCart, Search, FlameKindling, Plus, Minus, MapPin, ChefHat, Clock, Star, Flame, AlertCircle, Tag } from 'lucide-react'
+import { getMenus } from '../../api/menuApi' 
+import { getSettings } from '../../api/pengaturan' // 🔥 SINKRONISASI: Import API getSettings terpusat
 
 export function CustomerMenu() {
   const { state, dispatch } = useApp()
   const navigate = useNavigate()
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]) // State lokal untuk menyimpan data dari MongoDB
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]) 
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string | 'Semua'>('Semua')
@@ -20,20 +20,36 @@ export function CustomerMenu() {
   const [addNotes, setAddNotes] = useState('')
   const [addSpiceLevel, setAddSpiceLevel] = useState('')
 
-  // Ambil data menu dari MongoDB saat halaman dimuat
+  // 🔥 SINKRONISASI UTAMA: Memuat Menu & Setting Restoran secara bersamaan dari MongoDB Cloud
   useEffect(() => {
-    async function fetchMenus() {
+    async function loadData() {
       try {
-        const data = await getMenus()
-        setMenuItems(data)
+        setLoading(true)
+        
+        // Eksekusi paralel agar loading lebih cepat dan efisien
+        const [menuData, settingsData] = await Promise.all([
+          getMenus(),
+          getSettings()
+        ])
+
+        // 1. Simpan data menu ke state lokal
+        setMenuItems(menuData || [])
+
+        // 2. Kirim data setting terbaru ke global context agar sinkron di seluruh perangkat (HP Pelanggan)
+        if (settingsData) {
+          dispatch({
+            type: 'UPDATE_SETTINGS',
+            payload: settingsData
+          })
+        }
       } catch (error) {
-        console.error("Gagal mengambil data menu pelanggan:", error)
+        console.error("Gagal sinkronisasi data server pelanggan:", error)
       } finally {
         setLoading(false)
       }
     }
-    fetchMenus()
-  }, [])
+    loadData()
+  }, [dispatch])
 
   // SINKRONISASI STATE OPERASIONAL RESTORAN
   const isRestoOpen = state.settings?.isOperational !== false
@@ -103,7 +119,7 @@ export function CustomerMenu() {
     )
   }
 
-  // 2. SCREEN NORMAL JIKA RESTO AKTIF (DENGAN BANNER SINKRONISASI JIKA TUTUP)
+  // 2. SCREEN NORMAL
   return (
     <div className="min-h-screen bg-background relative">
       
@@ -135,7 +151,7 @@ export function CustomerMenu() {
             <span>{state.settings?.location || 'Lokasi Restoran'}</span>
             <span className="mx-2">·</span>
             <Clock size={11} />
-            <span>~{state.settings?.estimatedMinutes || '20'} menit</span>
+            <span>{state.settings?.operationalHours || '~20 menit'}</span>
           </div>
 
           {/* Search */}
