@@ -68,17 +68,14 @@ export function AdminMenu() {
   }
 
   // Menyimpan data (Tambah baru atau Update) ke MongoDB
- // Menyimpan data (Tambah baru atau Update) ke MongoDB
-  async function handleSave() {
-    if (!form.name || !form.price) return
+ async function handleSave() {
+    if (!form.name || form.price === undefined || form.price === null) return
     try {
       let dataToSend: any;
 
-      // JIKA ada file fisik baru yang dipilih admin
+      // JIKA ADA FILE FISIK (Foto dipilih langsung)
       if (imageFile) {
         const formDataObj = new FormData()
-        
-        // Memasukkan field wajib teks ke dalam FormData
         formDataObj.append('name', form.name)
         formDataObj.append('description', form.description || '')
         formDataObj.append('price', String(form.price))
@@ -88,34 +85,33 @@ export function AdminMenu() {
         formDataObj.append('available', String(form.available ?? true))
         formDataObj.append('isFlashSale', String(form.isFlashSale ?? false))
         formDataObj.append('hasSpiceLevel', String(form.hasSpiceLevel ?? false))
-        
-        // Memasukkan data biner file gambar ke field 'image'
         formDataObj.append('image', imageFile)
 
-        if (form.isFlashSale) {
-          if (form.salePrice) formDataObj.append('salePrice', String(form.salePrice))
+        if (form.isFlashSale && form.salePrice) {
+          formDataObj.append('salePrice', String(form.salePrice))
           if (form.saleEndTime) formDataObj.append('saleEndTime', form.saleEndTime)
         }
-        
         dataToSend = formDataObj
       } else {
-        // JIKA TIDAK ADA FILE FISIK YANG DIPILIH (Menggunakan teks URL bawaan)
-        // Kita kirim objek JSON murni {} seperti kodingan awalmu agar backend Railway tidak error 500
+        // JIKA PAKAI LINK TEKS (Sistem murni JSON untuk menghindari Error 400 & 500)
+        // Kita bentuk objeknya sangat rapi dan pastikan tidak ada nilai bertipe 'NaN' atau 'undefined'
         dataToSend = {
-          name: form.name,
+          name: form.name.trim(),
           description: form.description || '',
           price: Number(form.price),
           category: form.category || state.settings.customCategories[0],
-          image: form.image || '', // menggunakan string teks URL biasa
+          image: form.image || '', 
           stock: Number(form.stock ?? 10),
-          discount: Number(form.discount ?? 0),
+          discount: Number(form.discount || 0),
           available: form.available ?? true,
           isFlashSale: form.isFlashSale ?? false,
           hasSpiceLevel: form.hasSpiceLevel ?? false,
-          ...(form.isFlashSale && {
-            salePrice: form.salePrice ? Number(form.salePrice) : undefined,
-            saleEndTime: form.saleEndTime || undefined
-          })
+        }
+
+        // Hanya masukkan data sale jika Flash Sale aktif agar terhindar dari Bad Request (400)
+        if (form.isFlashSale && form.salePrice) {
+          dataToSend.salePrice = Number(form.salePrice)
+          if (form.saleEndTime) dataToSend.saleEndTime = form.saleEndTime
         }
       }
 
@@ -128,13 +124,12 @@ export function AdminMenu() {
         setMenuItems(prev => [...prev, newData])
       }
       
-      // Reset state form & bersihkan preview setelah sukses
       setImageFile(null)
       setImagePreview('')
       setShowModal(false)
     } catch (error) {
       console.error("Gagal menyimpan data menu:", error)
-      alert("Pastikan format input sudah sesuai.")
+      alert("Gagal menyimpan data.")
     }
   }
 
