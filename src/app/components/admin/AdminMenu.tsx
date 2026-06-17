@@ -73,19 +73,19 @@ export function AdminMenu() {
     try {
       let dataToSend: any;
 
-      // JIKA ADA FILE FISIK (Foto dipilih langsung)
+      // JIKA ADMIN MEMILIH FILE FOTO FISIK
       if (imageFile) {
         const formDataObj = new FormData()
-        formDataObj.append('name', form.name)
+        formDataObj.append('name', form.name.trim())
         formDataObj.append('description', form.description || '')
         formDataObj.append('price', String(form.price))
-        formDataObj.append('category', form.category || state.settings.customCategories[0])
+        formDataObj.append('category', form.category || 'Makanan Utama')
         formDataObj.append('stock', String(form.stock ?? 10))
         formDataObj.append('discount', String(form.discount ?? 0))
         formDataObj.append('available', String(form.available ?? true))
         formDataObj.append('isFlashSale', String(form.isFlashSale ?? false))
         formDataObj.append('hasSpiceLevel', String(form.hasSpiceLevel ?? false))
-        formDataObj.append('image', imageFile)
+        formDataObj.append('image', imageFile) // Dikirim sebagai file biner
 
         if (form.isFlashSale && form.salePrice) {
           formDataObj.append('salePrice', String(form.salePrice))
@@ -93,22 +93,20 @@ export function AdminMenu() {
         }
         dataToSend = formDataObj
       } else {
-        // JIKA PAKAI LINK TEKS (Sistem murni JSON untuk menghindari Error 400 & 500)
-        // Kita bentuk objeknya sangat rapi dan pastikan tidak ada nilai bertipe 'NaN' atau 'undefined'
+        // JIKA ADMIN HANYA MENEMPELKAN LINK URL TEKS
         dataToSend = {
           name: form.name.trim(),
           description: form.description || '',
           price: Number(form.price),
-          category: form.category || state.settings.customCategories[0],
-          image: form.image || '', 
+          category: form.category || 'Makanan Utama',
+          image: form.image || '', // Dikirim sebagai string URL teks biasa
           stock: Number(form.stock ?? 10),
-          discount: Number(form.discount || 0),
+          discount: Number(form.discount ?? 0),
           available: form.available ?? true,
           isFlashSale: form.isFlashSale ?? false,
           hasSpiceLevel: form.hasSpiceLevel ?? false,
         }
 
-        // Hanya masukkan data sale jika Flash Sale aktif agar terhindar dari Bad Request (400)
         if (form.isFlashSale && form.salePrice) {
           dataToSend.salePrice = Number(form.salePrice)
           if (form.saleEndTime) dataToSend.saleEndTime = form.saleEndTime
@@ -124,12 +122,13 @@ export function AdminMenu() {
         setMenuItems(prev => [...prev, newData])
       }
       
+      // Reset form
       setImageFile(null)
       setImagePreview('')
       setShowModal(false)
     } catch (error) {
       console.error("Gagal menyimpan data menu:", error)
-      alert("Gagal menyimpan data.")
+      alert("Gagal menyimpan data. Pastikan koneksi internet stabil.")
     }
   }
 
