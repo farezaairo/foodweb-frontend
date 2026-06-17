@@ -12,44 +12,21 @@ const blankItem = (defaultCategory: string): Partial<MenuItem> => ({
 
 export function AdminMenu() {
   const { state } = useApp() 
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]) 
+  const [menuItems, setMenuItems] = useState<any[]>([]) // Menggunakan any[] agar fleksibel membaca data database lama/baru
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string | 'Semua'>('Semua')
   const [showModal, setShowModal] = useState(false)
-  const [editing, setEditing] = useState<MenuItem | null>(null)
+  const [editing, setEditing] = useState<any | null>(null)
   const [form, setForm] = useState<Partial<MenuItem>>(blankItem(state.settings.customCategories[0] || 'Makanan Utama'))
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>('')
 
-  // 🛠️ FUNGSI CLERICAL: Memastikan field Indonesia/Inggris dibaca seragam oleh komponen UI Grid
-  function sanitizeMenu(raw: any): MenuItem {
-    return {
-      _id: raw._id || raw.id,
-      id: raw._id || raw.id,
-      name: raw.name || raw.nama || 'Tanpa Nama',
-      price: raw.price !== undefined ? raw.price : (raw.harga || 0),
-      description: raw.description || raw.deskripsi || '',
-      image: raw.image || raw.gambar || '',
-      category: raw.category || 'Makanan Utama',
-      stock: raw.stock !== undefined ? raw.stock : (raw.stok || 0),
-      discount: raw.discount !== undefined ? raw.discount : 0,
-      available: raw.available !== undefined ? raw.available : true,
-      isFlashSale: raw.isFlashSale !== undefined ? raw.isFlashSale : false,
-      hasSpiceLevel: raw.hasSpiceLevel !== undefined ? raw.hasSpiceLevel : false,
-      salePrice: raw.salePrice,
-      saleEndTime: raw.saleEndTime
-    }
-  }
-
   async function fetchMenus() {
     try {
       const data = await getMenus()
-      if (Array.isArray(data)) {
-        // Disaring terlebih dahulu agar aman dari anomali angka 0
-        setMenuItems(data.map(m => sanitizeMenu(m)))
-      }
+      setMenuItems(data)
     } catch (error) {
       console.error("Gagal mengambil data menu dari MongoDB:", error)
     } finally {
@@ -71,11 +48,25 @@ export function AdminMenu() {
     setShowModal(true) 
   }
   
-  function openEdit(item: MenuItem) { 
+  function openEdit(item: any) { 
     setEditing(item)
-    setForm({ ...item })
+    // Map data database lama ke struktur form frontend
+    setForm({
+      name: item.nama || item.name || '',
+      description: item.deskripsi || item.description || '',
+      price: item.harga !== undefined ? item.harga : (item.price || 0),
+      category: item.category || 'Makanan Utama',
+      image: item.gambar || item.image || '',
+      stock: item.stok !== undefined ? item.stok : (item.stock || 0),
+      discount: item.discount || 0,
+      available: item.available !== undefined ? item.available : true,
+      isFlashSale: item.isFlashSale || false,
+      hasSpiceLevel: item.hasSpiceLevel || false,
+      salePrice: item.salePrice,
+      saleEndTime: item.saleEndTime
+    })
     setImageFile(null)
-    setImagePreview(item.image || '') 
+    setImagePreview(item.gambar || item.image || '') 
     setShowModal(true) 
   }
 
@@ -93,12 +84,13 @@ export function AdminMenu() {
       let dataToSend: any;
 
       if (imageFile) {
+        // JIKA INPUT GAMBAR FISIK (Menggunakan FormData)
         const formDataObj = new FormData()
-        formDataObj.append('name', form.name.trim())
-        formDataObj.append('description', form.description || '')
-        formDataObj.append('price', String(form.price))
+        formDataObj.append('nama', form.name.trim())
+        formDataObj.append('deskripsi', form.description || '')
+        formDataObj.append('harga', String(form.price))
         formDataObj.append('category', form.category || 'Makanan Utama')
-        formDataObj.append('stock', String(form.stock ?? 10))
+        formDataObj.append('stok', String(form.stock ?? 10))
         formDataObj.append('discount', String(form.discount ?? 0))
         formDataObj.append('available', String(form.available ?? true))
         formDataObj.append('isFlashSale', String(form.isFlashSale ?? false))
@@ -111,13 +103,14 @@ export function AdminMenu() {
         }
         dataToSend = formDataObj
       } else {
+        // JIKA INPUT LINK URL TEKS (Menggunakan Objek JSON Murni Bahasa Indonesia)
         dataToSend = {
-          name: form.name.trim(),
-          description: form.description || '',
-          price: Number(form.price),
+          nama: form.name.trim(),
+          deskripsi: form.description || '',
+          harga: Number(form.price),
           category: form.category || 'Makanan Utama',
-          image: form.image || '', 
-          stock: Number(form.stock ?? 10),
+          gambar: form.image || '', 
+          stok: Number(form.stock ?? 10),
           discount: Number(form.discount ?? 0),
           available: form.available ?? true,
           isFlashSale: form.isFlashSale ?? false,
@@ -132,19 +125,20 @@ export function AdminMenu() {
 
       if (editing) {
         const currentId = editing._id || editing.id
-        const updatedData = await updateMenu(currentId!, dataToSend)
-        setMenuItems(prev => prev.map(m => (m._id === currentId || m.id === currentId) ? sanitizeMenu(updatedData) : m))
+        await updateMenu(currentId!, dataToSend)
       } else {
-        const newData = await createMenu(dataToSend)
-        setMenuItems(prev => [...prev, sanitizeMenu(newData)])
+        await createMenu(dataToSend)
       }
+      
+      // Ambil ulang data segar dari database agar UI sinkron total
+      await fetchMenus()
       
       setImageFile(null)
       setImagePreview('')
       setShowModal(false)
     } catch (error) {
       console.error("Gagal menyimpan data menu:", error)
-      alert("Gagal menyimpan data. Pastikan koneksi internet stabil.")
+      alert("Gagal menyimpan data. Periksa apakah semua kolom sudah benar.")
     }
   }
 
@@ -162,10 +156,11 @@ export function AdminMenu() {
     const item = menuItems.find(m => m._id === id || m.id === id)
     if (!item) return
 
-    const newStock = Math.max(0, item.stock + delta)
+    const currentStock = item.stok !== undefined ? item.stok : (item.stock || 0);
+    const newStock = Math.max(0, currentStock + delta)
     try {
-      const updatedData = await updateMenu(id, { stock: newStock })
-      setMenuItems(prev => prev.map(m => (m._id === id || m.id === id) ? sanitizeMenu(updatedData) : m))
+      await updateMenu(id, { stok: newStock })
+      await fetchMenus() // Sinkronisasi ulang data setelah stok diubah
     } catch (error) {
       console.error("Gagal memperbarui stok menu:", error)
     }
@@ -201,11 +196,17 @@ export function AdminMenu() {
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filtered.map(item => {
           const currentId = item._id || item.id
+          const finalImage = item.gambar || item.image || ''
+          const finalName = item.nama || item.name || 'Tanpa Nama'
+          const finalPrice = item.harga !== undefined ? item.harga : (item.price || 0)
+          const finalDesc = item.deskripsi || item.description || ''
+          const finalStock = item.stok !== undefined ? item.stok : (item.stock || 0)
+
           return (
             <div key={currentId} className="bg-card rounded-2xl border border-border overflow-hidden">
               <div className="relative h-40 bg-muted">
-                {item.image ? (
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                {finalImage ? (
+                  <img src={finalImage} alt={finalName} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Package size={32} /></div>
                 )}
@@ -222,29 +223,29 @@ export function AdminMenu() {
               </div>
               <div className="p-4">
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <h3 className="font-semibold text-foreground text-sm">{item.name}</h3>
+                  <h3 className="font-semibold text-foreground text-sm">{finalName}</h3>
                   <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full flex-shrink-0">{item.category}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{finalDesc}</p>
                 <div className="flex items-center justify-between mb-3">
                   {item.isFlashSale && item.salePrice ? (
                     <div>
                       <span className="font-bold" style={{ color: '#D4541A' }}>{formatCurrency(item.salePrice)}</span>
-                      <span className="text-xs text-muted-foreground line-through ml-1">{formatCurrency(item.price)}</span>
+                      <span className="text-xs text-muted-foreground line-through ml-1">{formatCurrency(finalPrice)}</span>
                     </div>
                   ) : (
-                    <span className="font-bold text-foreground">{formatCurrency(item.price)}</span>
+                    <span className="font-bold text-foreground">{formatCurrency(finalPrice)}</span>
                   )}
                 </div>
-                {/* Stock */}
+                {/* Stock Section */}
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs text-muted-foreground">Stok:</span>
                   <div className="flex items-center gap-2">
                     <button onClick={() => adjustStock(currentId!, -1)} className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors text-foreground">
                       <Minus size={12} />
                     </button>
-                    <span className={`text-sm font-bold w-6 text-center`} style={{ color: item.stock < 5 ? '#D4183D' : item.stock < 10 ? '#D4541A' : 'inherit' }}>
-                      {item.stock}
+                    <span className="text-sm font-bold w-6 text-center text-foreground">
+                      {finalStock}
                     </span>
                     <button onClick={() => adjustStock(currentId!, 1)} className="w-7 h-7 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors text-foreground">
                       <Plus size={12} />
