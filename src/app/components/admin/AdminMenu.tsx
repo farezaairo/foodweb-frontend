@@ -3,7 +3,7 @@ import { useApp } from '../../context/AppContext'
 import { formatCurrency } from '../../utils/print'
 import { MenuItem } from '../../data/types'
 import { Plus, Pencil, Trash2, Minus, FlameKindling, Package, Flame, Upload } from 'lucide-react'
-import { getMenus, createMenu, updateMenu, deleteMenu } from '../../api/menuApi' // Import fungsi API Menu
+import { getMenus, createMenu, updateMenu, deleteMenu } from '../../api/menuApi' 
 
 const blankItem = (defaultCategory: string): Partial<MenuItem> => ({
   name: '', description: '', price: 0, category: defaultCategory,
@@ -68,25 +68,28 @@ export function AdminMenu() {
   }
 
   // Menyimpan data (Tambah baru atau Update) ke MongoDB
+ // Menyimpan data (Tambah baru atau Update) ke MongoDB
   async function handleSave() {
     if (!form.name || !form.price) return
     try {
       let dataToSend: any;
 
-      // JIKA ada file gambar fisik yang diunggah, bungkus data ke dalam FormData
+      // JIKA ada file fisik baru yang dipilih admin
       if (imageFile) {
         const formDataObj = new FormData()
+        
+        // Memasukkan field wajib teks ke dalam FormData
         formDataObj.append('name', form.name)
         formDataObj.append('description', form.description || '')
         formDataObj.append('price', String(form.price))
-        formDataObj.append('category', form.category || '')
+        formDataObj.append('category', form.category || state.settings.customCategories[0])
         formDataObj.append('stock', String(form.stock ?? 10))
         formDataObj.append('discount', String(form.discount ?? 0))
         formDataObj.append('available', String(form.available ?? true))
         formDataObj.append('isFlashSale', String(form.isFlashSale ?? false))
         formDataObj.append('hasSpiceLevel', String(form.hasSpiceLevel ?? false))
         
-        // Memasukkan file gambar asli ke field 'image'
+        // Memasukkan data biner file gambar ke field 'image'
         formDataObj.append('image', imageFile)
 
         if (form.isFlashSale) {
@@ -96,8 +99,24 @@ export function AdminMenu() {
         
         dataToSend = formDataObj
       } else {
-        // JIKA tidak ada file baru (menggunakan URL teks default atau tidak mengganti gambar saat edit)
-        dataToSend = form
+        // JIKA TIDAK ADA FILE FISIK YANG DIPILIH (Menggunakan teks URL bawaan)
+        // Kita kirim objek JSON murni {} seperti kodingan awalmu agar backend Railway tidak error 500
+        dataToSend = {
+          name: form.name,
+          description: form.description || '',
+          price: Number(form.price),
+          category: form.category || state.settings.customCategories[0],
+          image: form.image || '', // menggunakan string teks URL biasa
+          stock: Number(form.stock ?? 10),
+          discount: Number(form.discount ?? 0),
+          available: form.available ?? true,
+          isFlashSale: form.isFlashSale ?? false,
+          hasSpiceLevel: form.hasSpiceLevel ?? false,
+          ...(form.isFlashSale && {
+            salePrice: form.salePrice ? Number(form.salePrice) : undefined,
+            saleEndTime: form.saleEndTime || undefined
+          })
+        }
       }
 
       if (editing) {
@@ -109,12 +128,13 @@ export function AdminMenu() {
         setMenuItems(prev => [...prev, newData])
       }
       
-      // Reset state form upload gambar setelah sukses disimpan
+      // Reset state form & bersihkan preview setelah sukses
       setImageFile(null)
       setImagePreview('')
       setShowModal(false)
     } catch (error) {
       console.error("Gagal menyimpan data menu:", error)
+      alert("Pastikan format input sudah sesuai.")
     }
   }
 
