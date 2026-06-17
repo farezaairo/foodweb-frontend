@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router'
 import { useApp } from '../../context/AppContext'
 import { formatCurrency } from '../../utils/print'
 import { MenuItem } from '../../data/types'
-import { ShoppingCart, Search, FlameKindling, Plus, Minus, MapPin, ChefHat, Clock, Star, Flame, AlertCircle, Tag } from 'lucide-react'
+import { ShoppingCart, Search, FlameKindling, Plus, Minus, MapPin, ChefHat, Clock, Star, Flame, AlertCircle, Tag, Package } from 'lucide-react' // 🔴 DITAMBAHKAN: Icon Package
 import { getMenus } from '../../api/menuApi' 
-import { getSettings } from '../../api/pengaturan' // Sinkronisasi API Pengaturan Terpusat
+import { getSettings } from '../../api/pengaturan' 
 
 export function CustomerMenu() {
   const { state, dispatch } = useApp()
@@ -177,7 +177,12 @@ export function CustomerMenu() {
                   const currentId = item._id || item.id
                   return (
                     <div key={currentId} onClick={() => openAdd(item)} className={`flex-shrink-0 w-36 bg-white rounded-xl overflow-hidden shadow-sm transition-shadow ${isRestoOpen ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed opacity-75'}`}>
-                      <img src={item.image} alt={item.name} className="w-full h-24 object-cover" />
+                      {/* 🔴 DISESUAIKAN: Fallback gambar jika string kosong */}
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-24 object-cover" />
+                      ) : (
+                        <div className="w-full h-24 bg-muted flex items-center justify-center text-muted-foreground"><Package size={20} /></div>
+                      )}
                       <div className="p-2">
                         <div className="text-xs font-semibold text-foreground line-clamp-1">{item.name}</div>
                         <div className="font-bold text-xs mt-0.5" style={{ color: '#D4541A' }}>{formatCurrency(item.salePrice!)}</div>
@@ -208,7 +213,12 @@ export function CustomerMenu() {
                 return (
                   <div key={currentId} onClick={() => openAdd(item)} className={`flex-shrink-0 w-36 bg-card rounded-xl overflow-hidden border border-border shadow-sm transition-shadow ${isRestoOpen ? 'cursor-pointer hover:shadow-md' : 'cursor-not-allowed opacity-75'}`}>
                     <div className="relative">
-                      <img src={item.image} alt={item.name} className="w-full h-24 object-cover" />
+                      {/* 🔴 DISESUAIKAN: Fallback gambar jika string kosong */}
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-24 object-cover" />
+                      ) : (
+                        <div className="w-full h-24 bg-muted flex items-center justify-center text-muted-foreground"><Package size={20} /></div>
+                      )}
                       {(isFlashActive || discounted) && (
                         <span className="absolute top-1.5 left-1.5 text-white text-xs px-1.5 py-0.5 rounded-lg flex items-center gap-0.5 font-bold" style={{ background: '#D4541A' }}>
                           {isFlashActive ? <><FlameKindling size={10} /> SALE</> : <><Flame size={10} /> -{item.discount}%</>}
@@ -290,7 +300,12 @@ export function CustomerMenu() {
             return (
               <div key={currentId} className={`bg-card rounded-2xl border border-border flex overflow-hidden ${outOfStock || !isRestoOpen ? 'opacity-60' : ''}`}>
                 <div className="relative w-32 flex-shrink-0">
-                  <img src={item.image} alt={item.name} className={`w-full h-full object-cover ${outOfStock ? 'grayscale' : ''}`} />
+                  {/* 🔴 DISESUAIKAN: Fallback gambar jika string kosong */}
+                  {item.image ? (
+                    <img src={item.image} alt={item.name} className={`w-full h-full object-cover ${outOfStock ? 'grayscale' : ''}`} />
+                  ) : (
+                    <div className="w-full h-full bg-muted flex items-center justify-center text-muted-foreground"><Package size={24} /></div>
+                  )}
                   {outOfStock && (
                     <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                       <span className="text-white font-bold text-xs">HABIS</span>
@@ -357,7 +372,12 @@ export function CustomerMenu() {
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
           <div className="bg-card rounded-t-3xl w-full max-w-lg p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex gap-4 mb-5">
-              <img src={addingItem.image} alt={addingItem.name} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
+              {/* 🔴 DISESUAIKAN: Fallback gambar di dalam modal kuantitas */}
+              {addingItem.image ? (
+                <img src={addingItem.image} alt={addingItem.name} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-20 h-20 bg-muted rounded-xl flex items-center justify-center text-muted-foreground flex-shrink-0"><Package size={24} /></div>
+              )}
               <div>
                 <h3 className="font-bold text-foreground" style={{ fontFamily: 'var(--font-display)' }}>{addingItem.name}</h3>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{addingItem.description}</p>

@@ -19,6 +19,9 @@ export function AdminMenu() {
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [form, setForm] = useState<Partial<MenuItem>>(blankItem(state.settings.customCategories[0] || 'Makanan Utama'))
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
+  
+  // 🔴 DISESUAIKAN: State baru untuk menampung file fisik gambar yang dipilih
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   // Ambil data menu dari MongoDB saat komponen pertama kali dimuat
   async function fetchMenus() {
@@ -28,7 +31,7 @@ export function AdminMenu() {
     } catch (error) {
       console.error("Gagal mengambil data menu dari MongoDB:", error)
     } finally {
-      setLoading(false)
+      loading(false) && setLoading(false) // Menghindari isu render ganda
     }
   }
 
@@ -41,28 +44,52 @@ export function AdminMenu() {
   function openAdd() { 
     setEditing(null)
     setForm(blankItem(state.settings.customCategories[0] || 'Makanan Utama'))
+    setSelectedFile(null) // 🔴 DISESUAIKAN: Reset file saat tambah menu baru
     setShowModal(true) 
   }
   
   function openEdit(item: MenuItem) { 
     setEditing(item)
     setForm({ ...item })
+    setSelectedFile(null) // 🔴 DISESUAIKAN: Reset file saat edit menu lama
     setShowModal(true) 
   }
 
-  // Menyimpan data (Tambah baru atau Update) ke MongoDB
+  // 🔴 DISESUAIKAN: Mengubah pengiriman data menjadi FormData agar mendukung upload file gambar fisik
   async function handleSave() {
     if (!form.name || !form.price) return
     try {
+      const formData = new FormData()
+      formData.append('name', form.name)
+      formData.append('description', form.description || '')
+      formData.append('price', String(form.price))
+      formData.append('category', form.category || 'Makanan Utama')
+      formData.append('stock', String(form.stock || 0))
+      formData.append('isFlashSale', String(form.isFlashSale || false))
+      formData.append('available', String(form.available ?? true))
+      formData.append('hasSpiceLevel', String(form.hasSpiceLevel || false))
+      formData.append('discount', String(form.discount || 0))
+      
+      if (form.salePrice) formData.append('salePrice', String(form.salePrice))
+      if (form.saleEndTime) formData.append('saleEndTime', form.saleEndTime)
+
+      // Masukkan file fisik gambar jika user memilih file baru
+      if (selectedFile) {
+        formData.append('gambar', selectedFile) // 'gambar' harus sesuai dengan nama di backend Express kamu
+      } else if (form.image) {
+        formData.append('image', form.image) // Tetap kirim string gambar lama jika tidak ada perubahan
+      }
+
       if (editing) {
         const currentId = editing._id || editing.id
-        const updatedData = await updateMenu(currentId!, form)
+        const updatedData = await updateMenu(currentId!, formData as any)
         setMenuItems(prev => prev.map(m => (m._id === currentId || m.id === currentId) ? updatedData : m))
       } else {
-        const newData = await createMenu(form)
+        const newData = await createMenu(formData as any)
         setMenuItems(prev => [...prev, newData])
       }
       setShowModal(false)
+      setSelectedFile(null) // Reset kembali setelah sukses menyimpan
     } catch (error) {
       console.error("Gagal menyimpan data menu:", error)
     }
@@ -86,7 +113,11 @@ export function AdminMenu() {
 
     const newStock = Math.max(0, item.stock + delta)
     try {
-      const updatedData = await updateMenu(id, { stock: newStock })
+      // Untuk update stok instan di card menu, kita bisa membungkusnya ke FormData atau biarkan object biasa jika api kamu support keduanya
+      const formData = new FormData()
+      formData.append('stock', String(newStock))
+      
+      const updatedData = await updateMenu(id, formData as any)
       setMenuItems(prev => prev.map(m => (m._id === id || m.id === id) ? updatedData : m))
     } catch (error) {
       console.error("Gagal memperbarui stok menu:", error)
@@ -216,9 +247,27 @@ export function AdminMenu() {
                   {state.settings.customCategories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </Field>
-              <Field label="URL Gambar">
-                <input value={form.image || ''} onChange={e => setForm(f => ({ ...f, image: e.target.value }))} className="input-field" placeholder="https://..." />
+
+              {/* 🔴 DISESUAIKAN: Mengganti input text URL Gambar lama menjadi input file komputer/HP */}
+              <Field label="Pilih Gambar Menu *">
+                {editing && form.image && !selectedFile && (
+                  <div className="mb-2 text-xs text-muted-foreground flex items-center gap-2">
+                    <span>Gambar saat ini:</span>
+                    <img src={form.image} alt="Preview" className="w-10 h-10 object-cover rounded-md border" />
+                  </div>
+                )}
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={e => {
+                    if (e.target.files && e.target.files[0]) {
+                      setSelectedFile(e.target.files[0])
+                    }
+                  }} 
+                  className="input-field py-1.5" 
+                />
               </Field>
+
               <Field label="Diskon (%)">
                 <input type="number" min="0" max="100" value={form.discount || 0} onChange={e => setForm(f => ({ ...f, discount: +e.target.value }))} className="input-field" placeholder="0" />
               </Field>
