@@ -11,8 +11,8 @@ const blankItem = (defaultCategory: string): Partial<MenuItem> => ({
 })
 
 export function AdminMenu() {
-  const { state } = useApp() // Mengambil state global hanya untuk membaca data settings kategori
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]) // State lokal untuk menyimpan data dari MongoDB
+  const { state } = useApp() 
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]) 
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string | 'Semua'>('Semua')
   const [showModal, setShowModal] = useState(false)
@@ -20,15 +20,36 @@ export function AdminMenu() {
   const [form, setForm] = useState<Partial<MenuItem>>(blankItem(state.settings.customCategories[0] || 'Makanan Utama'))
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
-  // State tambahan untuk mengelola file gambar fisik dan pratinjau (preview)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>('')
 
-  // Ambil data menu dari MongoDB saat komponen pertama kali dimuat
+  // 🛠️ FUNGSI CLERICAL: Memastikan field Indonesia/Inggris dibaca seragam oleh komponen UI Grid
+  function sanitizeMenu(raw: any): MenuItem {
+    return {
+      _id: raw._id || raw.id,
+      id: raw._id || raw.id,
+      name: raw.name || raw.nama || 'Tanpa Nama',
+      price: raw.price !== undefined ? raw.price : (raw.harga || 0),
+      description: raw.description || raw.deskripsi || '',
+      image: raw.image || raw.gambar || '',
+      category: raw.category || 'Makanan Utama',
+      stock: raw.stock !== undefined ? raw.stock : (raw.stok || 0),
+      discount: raw.discount !== undefined ? raw.discount : 0,
+      available: raw.available !== undefined ? raw.available : true,
+      isFlashSale: raw.isFlashSale !== undefined ? raw.isFlashSale : false,
+      hasSpiceLevel: raw.hasSpiceLevel !== undefined ? raw.hasSpiceLevel : false,
+      salePrice: raw.salePrice,
+      saleEndTime: raw.saleEndTime
+    }
+  }
+
   async function fetchMenus() {
     try {
       const data = await getMenus()
-      setMenuItems(data)
+      if (Array.isArray(data)) {
+        // Disaring terlebih dahulu agar aman dari anomali angka 0
+        setMenuItems(data.map(m => sanitizeMenu(m)))
+      }
     } catch (error) {
       console.error("Gagal mengambil data menu dari MongoDB:", error)
     } finally {
@@ -54,26 +75,23 @@ export function AdminMenu() {
     setEditing(item)
     setForm({ ...item })
     setImageFile(null)
-    setImagePreview(item.image || '') // Tampilkan gambar lama sebagai preview awal saat edit
+    setImagePreview(item.image || '') 
     setShowModal(true) 
   }
 
-  // Handler ketika admin memilih file gambar baru lewat komputer/HP
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
       setImageFile(file)
-      setImagePreview(URL.createObjectURL(file)) // Membuat link blob sementara untuk preview UI
+      setImagePreview(URL.createObjectURL(file))
     }
   }
 
-  // Menyimpan data (Tambah baru atau Update) ke MongoDB
- async function handleSave() {
+  async function handleSave() {
     if (!form.name || form.price === undefined || form.price === null) return
     try {
       let dataToSend: any;
 
-      // JIKA ADMIN MEMILIH FILE FOTO FISIK
       if (imageFile) {
         const formDataObj = new FormData()
         formDataObj.append('name', form.name.trim())
@@ -85,7 +103,7 @@ export function AdminMenu() {
         formDataObj.append('available', String(form.available ?? true))
         formDataObj.append('isFlashSale', String(form.isFlashSale ?? false))
         formDataObj.append('hasSpiceLevel', String(form.hasSpiceLevel ?? false))
-        formDataObj.append('image', imageFile) // Dikirim sebagai file biner
+        formDataObj.append('image', imageFile) 
 
         if (form.isFlashSale && form.salePrice) {
           formDataObj.append('salePrice', String(form.salePrice))
@@ -93,13 +111,12 @@ export function AdminMenu() {
         }
         dataToSend = formDataObj
       } else {
-        // JIKA ADMIN HANYA MENEMPELKAN LINK URL TEKS
         dataToSend = {
           name: form.name.trim(),
           description: form.description || '',
           price: Number(form.price),
           category: form.category || 'Makanan Utama',
-          image: form.image || '', // Dikirim sebagai string URL teks biasa
+          image: form.image || '', 
           stock: Number(form.stock ?? 10),
           discount: Number(form.discount ?? 0),
           available: form.available ?? true,
@@ -116,13 +133,12 @@ export function AdminMenu() {
       if (editing) {
         const currentId = editing._id || editing.id
         const updatedData = await updateMenu(currentId!, dataToSend)
-        setMenuItems(prev => prev.map(m => (m._id === currentId || m.id === currentId) ? updatedData : m))
+        setMenuItems(prev => prev.map(m => (m._id === currentId || m.id === currentId) ? sanitizeMenu(updatedData) : m))
       } else {
         const newData = await createMenu(dataToSend)
-        setMenuItems(prev => [...prev, newData])
+        setMenuItems(prev => [...prev, sanitizeMenu(newData)])
       }
       
-      // Reset form
       setImageFile(null)
       setImagePreview('')
       setShowModal(false)
@@ -132,7 +148,6 @@ export function AdminMenu() {
     }
   }
 
-  // Menghapus data dari MongoDB
   async function handleDelete(id: string) {
     try {
       await deleteMenu(id)
@@ -143,7 +158,6 @@ export function AdminMenu() {
     }
   }
 
-  // Menyesuaikan jumlah stok langsung ke MongoDB
   async function adjustStock(id: string, delta: number) {
     const item = menuItems.find(m => m._id === id || m.id === id)
     if (!item) return
@@ -151,7 +165,7 @@ export function AdminMenu() {
     const newStock = Math.max(0, item.stock + delta)
     try {
       const updatedData = await updateMenu(id, { stock: newStock })
-      setMenuItems(prev => prev.map(m => (m._id === id || m.id === id) ? updatedData : m))
+      setMenuItems(prev => prev.map(m => (m._id === id || m.id === id) ? sanitizeMenu(updatedData) : m))
     } catch (error) {
       console.error("Gagal memperbarui stok menu:", error)
     }
@@ -281,17 +295,14 @@ export function AdminMenu() {
                 </select>
               </Field>
 
-              {/* FIELD UNTUK UPLOAD GAMBAR BARU */}
               <Field label="Gambar Menu">
                 <div className="space-y-3">
-                  {/* Pratinjau kotak gambar jika ada data link atau file baru terisi */}
                   {imagePreview && (
                     <div className="relative w-28 h-28 rounded-xl overflow-hidden border border-border group bg-muted">
                       <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
                     </div>
                   )}
                   
-                  {/* Desain area upload file interaktif */}
                   <div className="relative flex items-center justify-center w-full border-2 border-dashed border-border rounded-xl p-4 hover:border-orange-500 transition-colors bg-muted/30">
                     <input 
                       type="file" 
@@ -305,7 +316,6 @@ export function AdminMenu() {
                     </div>
                   </div>
 
-                  {/* Alternatif input teks URL tetap dipertahankan di bawahnya untuk cadangan data manual */}
                   <input 
                     value={form.image || ''} 
                     onChange={e => {
